@@ -11,7 +11,7 @@ concourse_input = loads(stdin.read())
 
 if 'params' in concourse_input:
     if 'skip' in concourse_input['params']:
-        if 'skip' is True:
+        if 'skip' == True:
             print(
                 dumps(
                     {
@@ -47,7 +47,7 @@ if git_remote_output.returncode != 0:
 remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 name = concourse_input['source']['name']
 host = remote[2]
-api_base_url = 'https://' + ('api.github.com' if host is 'github.com' else host + '/api/v3')
+api_base_url = 'https://' + ('api.github.com' if host == 'github.com' else host + '/api/v3')
 owner = remote[3]
 repo = remote[4].split(" ")[0]
 head_sha = git_rev_parse_output.stdout.strip()
