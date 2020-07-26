@@ -4,7 +4,7 @@ Concourse resource for GitHub Checks
 ## Source configuration
 All fields are required.
 
-- `source` - the input where your source code is provided
+- `repository` - the input where your source code is provided
 - `token` - GitHub App token to use to authenticate
 - `check_name` - the name of the check within GitHub
 - `resource_name` - the name of the resource within Concourse
