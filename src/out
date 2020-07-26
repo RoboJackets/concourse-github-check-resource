@@ -1,0 +1,79 @@
+#!/bin/python
+
+from json import dumps, dump, loads, load
+from sys import stdin, argv
+from subprocess import run
+from os import getenv
+from datetime import datetime
+from requests import patch
+
+concourse_input = loads(stdin.read())
+
+resource_name = concourse_input['source']['resource_name']
+
+# check to make sure only resource_name is provided as an input and fail if not
+
+with open(resource_name + "/state.json", "r") as state_file:
+    state = load(state_file)
+
+conclusion = concourse_input['params']['conclusion']
+
+data = {
+    'conclusion': conclusion,
+    'completed_at': datetime.now().astimezone().replace(microsecond=0).isoformat(),
+}
+
+if 'title' in concourse_input['params'] and 'summary' in concourse_input['params']:
+    data['output'] = {
+        'title': concourse_input['params'],
+        'summary': concourse_input['params'],
+    }
+else:
+    if conclusion == 'cancelled':
+        data['output'] = {
+            'title': 'Task cancelled by user',
+            'summary': 'Re-run the job within Concourse.',
+        }
+    if conclusion == 'action_required':
+        data['output'] = {
+            'title': 'Error running task',
+            'summary': 'Review the output within Concourse.',
+        }
+
+print(data)
+
+headers = {
+    'Authorization': 'Bearer ' + concourse_input['source']['token'],
+    'User-Agent': 'concourse-github-check-resource',
+    'Accept': 'application/vnd.github.antiope-preview+json'
+}
+
+response = patch(state['url'], data=data, headers=headers)
+
+if response.status_code != 200:
+    print(f"GitHub returned unexpected response code {response.status_code}")
+    print(response)
+    exit(1)
+
+url = response.json()['url']
+html_url = response.json()['html_url']
+
+print(
+    dumps(
+        {
+            'version': {
+                'uuid': concourse_input['version']['uuid']
+            },
+            'metadata': [
+                {
+                    'name': 'url',
+                    'value': url
+                },
+                {
+                    'name': 'html_url',
+                    'value': html_url
+                }
+            ]
+        }
+    )
+)

@@ -1,0 +1,14 @@
+#!/bin/python
+
+from uuid import uuid4
+from json import dumps
+
+print(
+    dumps(
+        [
+            {
+                'uuid': uuid4().hex
+            }
+        ]
+    )
+)
