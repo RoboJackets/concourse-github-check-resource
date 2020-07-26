@@ -32,13 +32,13 @@ if 'params' in concourse_input:
 
 # check to make sure resource_name matches argv[1]
 
-git_rev_parse_output = run(['git', '-C', concourse_input['source']['source'], 'rev-parse', 'HEAD'], text=True)
+git_rev_parse_output = run(['git', '-C', concourse_input['source']['repository'], 'rev-parse', 'HEAD'], text=True)
 if git_rev_parse_output.returncode != 0:
     print(f"git returned unexpected response code {git_rev_parse_output.returncode}")
     print(git_rev_parse_output)
     exit(1)
 
-git_remote_output = run(['git', '-C', concourse_input['source']['source'], 'remote', '--verbose'], text=True)
+git_remote_output = run(['git', '-C', concourse_input['source']['repository'], 'remote', '--verbose'], text=True)
 if git_remote_output.returncode != 0:
     print(f"git returned unexpected response code {git_remote_output.returncode}")
     print(git_remote_output)
