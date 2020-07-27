@@ -34,10 +34,10 @@ repository = path.join(input_directory, concourse_input['source']['repository'])
 assert path.exists(repository)
 assert path.isdir(repository)
 
-git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True)
+git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True, capture_output=True)
 assert git_rev_parse_output.returncode == 0
 
-git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=True)
+git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=True, capture_output=True)
 assert git_remote_output.returncode == 0
 
 remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
