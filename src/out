@@ -59,7 +59,7 @@ if path.exists(state_file_path):
         state = load(state_file)
 
     assert isinstance(state, dict)
-    assert isinstance(state["id"], int)
+    assert isinstance(state["id"], str)
 
     check_id = state["id"]
 
@@ -154,7 +154,7 @@ else:
         dumps(
             {
                 'version': {
-                    'id': check_id
+                    'id': str(check_id)
                 },
                 'metadata': [
                     {

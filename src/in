@@ -12,7 +12,7 @@ concourse_input = loads(stdin.read())
 
 assert isinstance(concourse_input, dict)
 assert isinstance(concourse_input["version"], dict)
-assert isinstance(concourse_input["version"]["id"], int)
+assert isinstance(concourse_input["version"]["id"], str)
 
 version_id = concourse_input["version"]["id"]
 
