@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from json import dumps, loads, load
-from sys import stdin
+from sys import stdin, argv
 from subprocess import run
 from os import getenv, path
 from datetime import datetime
@@ -9,6 +9,13 @@ from requests import patch, post
 
 source_fields = ("repository", "token", "check_name", "resource_name")
 conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
+
+assert len(argv) == 2
+
+input_directory = argv[1]
+
+assert path.exists(input_directory)
+assert path.isdir(input_directory)
 
 concourse_input = loads(stdin.read())
 
@@ -22,7 +29,7 @@ for source_field in source_fields:
 for source_field in concourse_input["source"]:
     assert source_field in source_fields, "Unexpected field passed in `source`"
 
-repository = concourse_input['source']['repository']
+repository = path.join(input_directory, concourse_input['source']['repository'])
 
 assert path.exists(repository)
 assert path.isdir(repository)
@@ -44,7 +51,7 @@ name = concourse_input['source']['name']
 details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
 timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
 
-state_file_path = concourse_input["source"]["resource_name"] + "/state.json"
+state_file_path = path.join(input_directory, concourse_input['source']['resource_name'], "/state.json")
 
 if path.exists(state_file_path):
     assert path.isfile(state_file_path)
