@@ -1,79 +1,165 @@
 #!/usr/bin/env python3
 
-from json import dumps, dump, loads, load
-from sys import stdin, argv
+from json import dumps, loads, load
+from sys import stdin
 from subprocess import run
-from os import getenv
+from os import getenv, path
 from datetime import datetime
-from requests import patch
+from requests import patch, post
+
+source_fields = ("repository", "token", "check_name", "resource_name")
+conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
 
 concourse_input = loads(stdin.read())
 
-resource_name = concourse_input['source']['resource_name']
+assert isinstance(concourse_input, dict)
+assert "source" in concourse_input, "Missing required `source` fields"
+assert isinstance(concourse_input["source"], dict), "`source` must be a dict, check pipeline configuration"
 
-# check to make sure only resource_name is provided as an input and fail if not
+for source_field in source_fields:
+    assert source_field in concourse_input["source"], "Missing required field in `source`"
 
-with open(resource_name + "/state.json", "r") as state_file:
-    state = load(state_file)
+for source_field in concourse_input["source"]:
+    assert source_field in source_fields, "Unexpected field passed in `source`"
 
-conclusion = concourse_input['params']['conclusion']
+repository = concourse_input['source']['repository']
 
-data = {
-    'conclusion': conclusion,
-    'completed_at': datetime.now().astimezone().replace(microsecond=0).isoformat(),
-}
+assert path.exists(repository)
+assert path.isdir(repository)
 
-if 'title' in concourse_input['params'] and 'summary' in concourse_input['params']:
-    data['output'] = {
-        'title': concourse_input['params'],
-        'summary': concourse_input['params'],
+git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True)
+assert git_rev_parse_output.returncode == 0
+
+git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=True)
+assert git_remote_output.returncode == 0
+
+remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
+name = concourse_input['source']['name']
+host = remote[2]
+api_base_url = 'https://' + ('api.github.com' if host == 'github.com' else host + '/api/v3')
+owner = remote[3]
+repo = remote[4].split(" ")[0]
+head_sha = git_rev_parse_output.stdout.strip()
+name = concourse_input['source']['name']
+details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
+timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+state_file_path = concourse_input["source"]["resource_name"] + "/state.json"
+
+if path.exists(state_file_path):
+    assert path.isfile(state_file_path)
+
+    with open(state_file_path, "r") as state_file:
+        state = load(state_file)
+
+    assert isinstance(state, dict)
+    assert isinstance(state["id"], int)
+
+    check_id = state["id"]
+
+    assert "params" in concourse_input, "`params` required to update an existing check"
+    params = concourse_input["params"]
+    assert isinstance(params, dict), "`params` must be a dict, check pipeline configuration"
+
+    assert "conclusion" in params, "`conclusion` required in `params` to update an existing check"
+
+    conclusion = params['conclusion']
+
+    assert conclusion in conclusion_options, "Invalid `conclusion` specified - refer to the GitHub API documentation for possible values"
+
+    data = {
+        'conclusion': conclusion,
+        'completed_at': timestamp,
     }
-else:
-    if conclusion == 'cancelled':
+
+    if 'title' in params and 'summary' in params:
         data['output'] = {
-            'title': 'Task cancelled by user',
-            'summary': 'Re-run the job within Concourse.',
+            'title': params["title"],
+            'summary': params["summary"],
         }
-    if conclusion == 'action_required':
-        data['output'] = {
-            'title': 'Error running task',
-            'summary': 'Review the output within Concourse.',
-        }
+    else:
+        if conclusion == 'cancelled':
+            data['output'] = {
+                'title': 'Task cancelled by user',
+                'summary': 'Re-run the job within Concourse.',
+            }
+        if conclusion == 'action_required':
+            data['output'] = {
+                'title': 'Error running task',
+                'summary': 'Review the output within Concourse.',
+            }
 
-print(data)
+    headers = {
+        'Authorization': 'Bearer ' + concourse_input['source']['token'],
+        'User-Agent': 'concourse-github-check-resource',
+        'Accept': 'application/vnd.github.antiope-preview+json'
+    }
 
-headers = {
-    'Authorization': 'Bearer ' + concourse_input['source']['token'],
-    'User-Agent': 'concourse-github-check-resource',
-    'Accept': 'application/vnd.github.antiope-preview+json'
-}
+    response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", data=data, headers=headers)
+    assert response.status_code == 200
 
-response = patch(state['url'], data=data, headers=headers)
+    url = response.json()['url']
+    html_url = response.json()['html_url']
 
-if response.status_code != 200:
-    print(f"GitHub returned unexpected response code {response.status_code}")
-    print(response)
-    exit(1)
-
-url = response.json()['url']
-html_url = response.json()['html_url']
-
-print(
-    dumps(
-        {
-            'version': {
-                'uuid': concourse_input['version']['uuid']
-            },
-            'metadata': [
-                {
-                    'name': 'url',
-                    'value': url
+    print(
+        dumps(
+            {
+                'version': {
+                    'id': check_id
                 },
-                {
-                    'name': 'html_url',
-                    'value': html_url
-                }
-            ]
-        }
+                'metadata': [
+                    {
+                        'name': 'url',
+                        'value': url
+                    },
+                    {
+                        'name': 'html_url',
+                        'value': html_url
+                    }
+                ]
+            }
+        )
     )
-)
+else:
+    data = {
+        'name': name,
+        'head_sha': head_sha,
+        'details_url': details_url,
+        'status': 'in_progress',
+        'started_at': timestamp,
+    }
+
+    headers = {
+        'Authorization': 'Bearer ' + concourse_input['source']['token'],
+        'User-Agent': 'concourse-github-check-resource',
+        'Accept': 'application/vnd.github.antiope-preview+json'
+    }
+
+    response = post(f"{api_base_url}/repos/{owner}/{repo}/check-runs", data=data, headers=headers)
+    assert response.status_code == 201
+
+    json = response.json()
+
+    check_id = json["id"]
+    url = json['url']
+    html_url = json['html_url']
+
+    print(
+        dumps(
+            {
+                'version': {
+                    'id': check_id
+                },
+                'metadata': [
+                    {
+                        'name': 'url',
+                        'value': url
+                    },
+                    {
+                        'name': 'html_url',
+                        'value': html_url
+                    }
+                ]
+            }
+        )
+    )

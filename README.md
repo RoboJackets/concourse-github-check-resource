@@ -12,14 +12,21 @@ All fields are required.
 GitHub endpoint information, commit SHA, and the URL to the Concourse job log will be derived from the environment.
 
 ## Behavior
+Do not `get` this resource manually, it will not work.
 
 ### `check`
-Emits a random UUID (so Concourse calls `in` for every job, so we get the correct job URL.)
+Returns an empty list of versions.
 
 ### `in`
-Creates a new check with state `in_progress` and outputs the GitHub API response as `state.json` to the output directory. This should be used by `out` to update the check. `started_at` will automatically be set to the time when `in` was called.
+Writes the requested version out to disk for future `put`s to update. Intended only for implicit `get`s after `put`s.
 
 ### `out`
+You may to set [`inputs: detect`](https://concourse-ci.org/jobs.html#schema.step.put-step.inputs) for better performance if you have large resources in your pipeline.
+
+#### First `put`
+Creates a new check with state `in_progress`. `started_at` will automatically be set to the time when `in` was called.
+
+#### Subsequent `put`s
 Updates an existing check. Refer to [the GitHub Checks API documentation](https://docs.github.com/en/rest/reference/checks) for possible values and descriptions. `completed_at` will automatically be set to the time when `out` was called.
 
 Supported `params`:
@@ -30,5 +37,3 @@ Supported `params`:
 - `summary` (optional, for the `output` object)
     - If `conclusion` is `cancelled` this will default to "Re-run the job within Concourse."
     - If `conclusion` is `action_required` this will default to "Review the output within Concourse."
-
-You also need to set `inputs` to the name of the resource and `skip: true` under `get_params`.
