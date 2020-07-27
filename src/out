@@ -102,7 +102,7 @@ if path.exists(state_file_path):
     }
 
     response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", data=data, headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
 
     url = response.json()['url']
     html_url = response.json()['html_url']
@@ -142,7 +142,7 @@ else:
     }
 
     response = post(f"{api_base_url}/repos/{owner}/{repo}/check-runs", data=data, headers=headers)
-    assert response.status_code == 201
+    assert response.status_code == 201, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
 
     json = response.json()
 
