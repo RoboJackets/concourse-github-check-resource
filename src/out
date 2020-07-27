@@ -41,13 +41,12 @@ git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=T
 assert git_remote_output.returncode == 0
 
 remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
-name = concourse_input['source']['name']
 host = remote[2]
 api_base_url = 'https://' + ('api.github.com' if host == 'github.com' else host + '/api/v3')
 owner = remote[3]
 repo = remote[4].split(" ")[0]
 head_sha = git_rev_parse_output.stdout.strip()
-name = concourse_input['source']['name']
+name = concourse_input['source']['check_name']
 details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
 timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
 
