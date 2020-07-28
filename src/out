@@ -50,9 +50,9 @@ name = concourse_input['source']['check_name']
 details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
 timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
 
-state_file_path = path.join(input_directory, concourse_input['source']['resource_name'], "/state.json")
+state_file_path = path.join(input_directory, concourse_input['source']['resource_name'], "state.json")
 
-print(state_file_path, stderr)
+print(state_file_path, file=stderr)
 
 if path.exists(state_file_path):
     assert path.isfile(state_file_path)
