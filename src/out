@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 
 from json import dumps, loads, load
-from sys import stdin, argv, stderr
+from sys import stdin, stderr, argv
 from subprocess import run
-from os import getenv, path
+from os import getenv, path, listdir
 from datetime import datetime
 from requests import patch, post
 
-source_fields = ("repository", "token", "check_name", "resource_name")
+
+def timestamp_for_github():
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
+def parse_yamllint_annotations(source_path):
+    for source_file in listdir(source_path):
+        with open(source_file, "r") 
+    pass
+
+
+required_source_fields = ("repository", "token", "check_name", "resource_name")
+optional_source_fields = ("annotations_format", "annotations_location", "debug")
 conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
+
+timestamp = timestamp_for_github()
 
 assert len(argv) == 2
 
@@ -23,16 +37,19 @@ assert isinstance(concourse_input, dict)
 assert "source" in concourse_input, "Missing required `source` fields"
 assert isinstance(concourse_input["source"], dict), "`source` must be a dict, check pipeline configuration"
 
-for source_field in source_fields:
-    assert source_field in concourse_input["source"], "Missing required field in `source`"
+for source_field in required_source_fields:
+    assert source_field in concourse_input["source"], f"Missing required field `{source_field}`in `source`"
 
 for source_field in concourse_input["source"]:
-    assert source_field in source_fields, "Unexpected field passed in `source`"
+    assert source_field in required_source_fields or source_field in optional_source_fields, f"Unexpected field `{source_field}` passed in `source`"
 
 repository = path.join(input_directory, concourse_input['source']['repository'])
 
 assert path.exists(repository)
 assert path.isdir(repository)
+
+if len(listdir(input_directory)) > 2:
+    print("To improve performance, you may want to manually configure the inputs to this step. See the documentation for more information.", file=stderr)
 
 git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True, capture_output=True)
 assert git_rev_parse_output.returncode == 0
@@ -48,11 +65,8 @@ repo = remote[4].split(" ")[0]
 head_sha = git_rev_parse_output.stdout.strip()
 name = concourse_input['source']['check_name']
 details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
-timestamp = datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 state_file_path = path.join(input_directory, concourse_input['source']['resource_name'], "state.json")
-
-print(state_file_path, file=stderr)
 
 if path.exists(state_file_path):
     assert path.isfile(state_file_path)
@@ -97,6 +111,26 @@ if path.exists(state_file_path):
                 'summary': 'Review the output within Concourse.',
             }
 
+    if "annotations_format" in concourse_input["source"]:
+        annotations_format = concourse_input["source"]["annotations_format"]
+        assert isinstance(annotations_format, str)
+        if "annotations_location" in concourse_input["source"]:
+            annotations_location = concourse_input["source"]["annotations_format"]
+        else:
+            annotations_location = annotations_format
+        annotations_path = path.join(input_directory, annotations_location)
+        assert path.exists(annotations_path)
+        assert path.isdir(annotations_path)
+
+        if len(listdir(annotations_path)) == 0:
+            print("No input files found for annotations.", file=stderr)
+        else:
+            if annotations_format == "yamllint":
+                data["output"] = parse_yamllint_annotations(annotations_path)
+            else:
+                print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
+                exit(1)
+
     headers = {
         'Authorization': 'Bearer ' + concourse_input['source']['token'],
         'User-Agent': 'concourse-github-check-resource',
@@ -134,7 +168,7 @@ else:
         'head_sha': head_sha,
         'details_url': details_url,
         'status': 'in_progress',
-        'started_at': timestamp,
+        'started_at': timestamp_for_github(),
     }
 
     headers = {

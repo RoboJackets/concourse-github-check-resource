@@ -4,9 +4,7 @@ from json import dump, dumps, loads
 from sys import stdin, argv
 from os import path
 
-if len(argv) != 2:
-    print(f"Unexpected number of parameters passed, expected exactly 1 but got {len(argv) - 1}")
-    exit(1)
+assert len(argv) == 2
 
 concourse_input = loads(stdin.read())
 

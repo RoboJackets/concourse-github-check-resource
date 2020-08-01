@@ -2,12 +2,13 @@
 Concourse resource for GitHub Checks
 
 ## Source configuration
-All fields are required.
 
-- `repository` - the input where your source code is provided
-- `token` - GitHub App token to use to authenticate
-- `check_name` - the name of the check within GitHub
-- `resource_name` - the name of the resource within Concourse
+- `repository` (required) - the resource where your source code is provided
+- `token` (required) - GitHub App token to use to authenticate
+- `check_name` (required) - the name of the check within GitHub
+- `resource_name` (required) - the name of the resource within Concourse
+- `annotations_format` (optional) - The format for annotations. Supports `yamllint`.
+- `annotations_location` (optional) - The location of annotations. By default, this is the same as `annotations_format`, but you can provide another path if necessary.
 
 GitHub endpoint information, commit SHA, and the URL to the Concourse job log will be derived from the environment.
 
@@ -15,13 +16,13 @@ GitHub endpoint information, commit SHA, and the URL to the Concourse job log wi
 Do not `get` this resource manually, it will not work.
 
 ### `check`
-Returns an empty list of versions.
+Returns an empty list.
 
 ### `in`
 Writes the requested version out to disk for future `put`s to update. Intended only for implicit `get`s after `put`s.
 
 ### `out`
-You may to set [`inputs: detect`](https://concourse-ci.org/jobs.html#schema.step.put-step.inputs) for better performance if you have large resources in your pipeline.
+You may want to [manually configure inputs](https://concourse-ci.org/jobs.html#schema.step.put-step.inputs) for better performance if you have large resources in your pipeline.
 
 #### First `put`
 Creates a new check with state `in_progress`. `started_at` will automatically be set to the time when `in` was called.
@@ -34,6 +35,8 @@ Supported `params`:
 - `title` (optional, for the `output` object)
     - If `conclusion` is `cancelled` this will default to "Task cancelled by user"
     - If `conclusion` is `action_required` this will default to "Error running task"
+    - If annotations are available to publish, the parser will replace this value.
 - `summary` (optional, for the `output` object)
     - If `conclusion` is `cancelled` this will default to "Re-run the job within Concourse."
     - If `conclusion` is `action_required` this will default to "Review the output within Concourse."
+    - If annotations are available to publish, the parser will replace this value.
