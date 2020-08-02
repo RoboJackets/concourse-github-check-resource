@@ -36,7 +36,7 @@ def parse_yamllint_annotations(source_path):
                     "end_line": int(annotation_parts.group("line")),
                     "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
                     "message": annotation_parts.group("message"),
-                    "raw_details": dumps(annotation_parts.groupdict),
+                    "raw_details": dumps(annotation_parts.groupdict()),
                 })
 
     if len(files) == 0:
@@ -77,7 +77,7 @@ def parse_mypy_annotations(source_path):
                     "end_line": int(annotation_parts.group("line")),
                     "annotation_level": mypy_level_to_github_level[annotation_parts.group("level")],
                     "message": annotation_parts.group("message"),
-                    "raw_details": dumps(annotation_parts.groupdict),
+                    "raw_details": dumps(annotation_parts.groupdict()),
                 })
 
     if len(files) == 0:
