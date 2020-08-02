@@ -31,8 +31,8 @@ def parse_yamllint_annotations(source_path):
                 files.add(annotation_parts.group("path"))
                 annotations.append({
                     "path": annotation_parts.group("path"),
-                    "start_line": annotation_parts.group("line"),
-                    "end_line": annotation_parts.group("line"),
+                    "start_line": int(annotation_parts.group("line")),
+                    "end_line": int(annotation_parts.group("line")),
                     "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
                     "message": annotation_parts.group("message"),
                     "raw_details": annotation_parts.group("rule"),
