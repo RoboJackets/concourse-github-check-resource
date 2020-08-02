@@ -7,6 +7,7 @@ from os import getenv, path, listdir
 from datetime import datetime
 from requests import patch, post
 from re import fullmatch
+from traceback import format_exc
 
 
 def timestamp_for_github():
@@ -298,6 +299,7 @@ if path.exists(state_file_path):
                     print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
                     exit(1)
             except:
+                print(format_exc(), file=stderr)
                 data["output"] = {
                     "title": "Failed to parse annotations",
                     "summary": f"Review the output within Concourse, or run `fly intercept --job={getenv('BUILD_PIPELINE_NAME')}/{getenv('BUILD_JOB_NAME')} --build={getenv('BUILD_NAME')}` to examine the container."
