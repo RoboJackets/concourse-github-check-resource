@@ -13,10 +13,26 @@ def timestamp_for_github():
 
 
 def parse_yamllint_annotations(source_path):
+    annotations=[]
     for source_file in listdir(source_path):
-        with open(source_file, "r") 
-    pass
+        note_levels={
+            "warning": "warning",
+            "error": "failure"
+        }
+        regex = r"(.*)[:](.*)[:].*[:] [[](warning|error)[]] (.*)"
 
+        with open(source_file, "r")
+            for line in file:
+                note_parts = re.split(regex, test_str)
+                note = {
+                    "path": note_parts[1],
+                    "start_line": note_parts[2],
+                    "end_line": note_parts[2],
+                    "annotation_level": note_levels[note_parts[3]],
+                    "message": note_parts[4]
+                }
+                annotations.append(note)
+    return annotations
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
 optional_source_fields = ("annotations_format", "annotations_location", "debug")
