@@ -8,36 +8,50 @@ from datetime import datetime
 from requests import patch, post
 import re
 
+
 def timestamp_for_github():
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 
 def parse_yamllint_annotations(source_path):
-    print("in parse", file=stderr)
-    annotations=[]
-    for source_file in listdir(source_path):
-        print("found file " + source_file, file=stderr)
-        note_levels={
-            "warning": "warning",
-            "error": "failure"
-        }
-        regex = r"(?P<path>.*)[:](?P<line>.*)[:].*[:] [[](?P<level>warning|error)[]] (?P<message>.*)"
+    regex = r"\A\.?\/?(?P<path>.*)\:(?P<line>\d+)\:\d+\: \[(?P<level>warning|error)\] (?P<message>.*) \((?P<rule>.*)\)\Z"
+    files = set()
+    annotations = []
 
+    yammlint_level_to_github_level = {
+        "warning": "warning",
+        "error": "failure"
+    }
+
+    for source_file in listdir(source_path):
         with open(path.join(source_path, source_file), "r") as file:
             for line in file:
-                print("line " + line, file=stderr)
-                note_parts = re.match(regex, line)
-                note = {
-                    "path": note_parts.group("path"),
-                    "start_line": note_parts.group("line"),
-                    "end_line": note_parts.group("line"),
-                    "annotation_level": note_levels[note_parts.group("level")],
-                    "message": note_parts.group("message")
-                }
-                print(note, file=stderr)
-                annotations.append(note)
-    print(annotations, file=stderr)
-    return annotations
+                annotation_parts = re.fullmatch(regex, line.strip())
+                assert annotation_parts, f"Failed to parse line `{line.strip()}"
+                files.add(annotation_parts.group("path"))
+                annotations.append({
+                    "path": annotation_parts.group("path"),
+                    "start_line": annotation_parts.group("line"),
+                    "end_line": annotation_parts.group("line"),
+                    "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
+                    "message": annotation_parts.group("message"),
+                    "raw_details": annotation_parts.group("rule"),
+                })
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All YAML files meet the configured style standard."
+        }
+    else:
+        annotations_plural = "" if len(annotations) == 1 else "s"
+        files_plural = "" if len(files) == 1 else "s"
+        do_plural = "es" if len(files) == 1 else ""
+        return {
+            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+            "annotations": annotations
+        }
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
 optional_source_fields = ("annotations_format", "annotations_location", "debug")
@@ -158,11 +172,16 @@ if path.exists(state_file_path):
         'Accept': 'application/vnd.github.antiope-preview+json'
     }
 
-
-    print(data, file=stderr)
-
-    response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
-    assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+    if "output" in data and "annotations" in data["output"] and len(data["output"]["annotations"]) > 0:
+        original_annotations = data["output"]["annotations"]
+        n = 50  # GitHub API only accepts 50 annotations per call
+        for annotations in [original_annotations[i * n:(i + 1) * n] for i in range((len(original_annotations) + n - 1) // n)]:
+            data["output"]["annotations"] = annotations
+            response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
+            assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+    else:
+        response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
+        assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
 
     url = response.json()['url']
     html_url = response.json()['html_url']
