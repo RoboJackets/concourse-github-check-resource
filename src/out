@@ -6,7 +6,7 @@ from subprocess import run
 from os import getenv, path, listdir
 from datetime import datetime
 from requests import patch, post
-import re
+from re import fullmatch
 
 
 def timestamp_for_github():
@@ -26,7 +26,7 @@ def parse_yamllint_annotations(source_path):
     for source_file in listdir(source_path):
         with open(path.join(source_path, source_file), "r") as file:
             for line in file:
-                annotation_parts = re.fullmatch(regex, line.strip())
+                annotation_parts = fullmatch(regex, line.strip())
                 assert annotation_parts, f"Failed to parse line `{line.strip()}"
                 files.add(annotation_parts.group("path"))
                 annotations.append({
@@ -34,8 +34,7 @@ def parse_yamllint_annotations(source_path):
                     "start_line": int(annotation_parts.group("line")),
                     "end_line": int(annotation_parts.group("line")),
                     "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
-                    "message": annotation_parts.group("message"),
-                    "raw_details": annotation_parts.group("rule"),
+                    "message": annotation_parts.group("message")
                 })
 
     if len(files) == 0:
@@ -52,6 +51,7 @@ def parse_yamllint_annotations(source_path):
             "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
             "annotations": annotations
         }
+
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
 optional_source_fields = ("annotations_format", "annotations_location", "debug")
@@ -175,8 +175,8 @@ if path.exists(state_file_path):
     if "output" in data and "annotations" in data["output"] and len(data["output"]["annotations"]) > 0:
         original_annotations = data["output"]["annotations"]
         n = 50  # GitHub API only accepts 50 annotations per call
-        for annotations in [original_annotations[i * n:(i + 1) * n] for i in range((len(original_annotations) + n - 1) // n)]:
-            data["output"]["annotations"] = annotations
+        for chunked_annotations in [original_annotations[i * n:(i + 1) * n] for i in range((len(original_annotations) + n - 1) // n)]:
+            data["output"]["annotations"] = chunked_annotations
             response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
             assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
     else:
