@@ -54,7 +54,7 @@ def parse_yamllint_annotations(source_path):
 
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
-optional_source_fields = ("annotations_format", "annotations_location", "debug")
+optional_source_fields = ("annotations_format", "annotations_location")
 conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
 
 timestamp = timestamp_for_github()
@@ -91,8 +91,12 @@ assert git_rev_parse_output.returncode == 0
 
 git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=True, capture_output=True)
 assert git_remote_output.returncode == 0
+if len(git_remote_output.stdout.strip()) == 0:
+    with open(path.join(repository, ".git", "resource", "url"), "r") as url_file:
+        remote = url_file.read()
+else:
+    remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 
-remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 host = remote[2]
 api_base_url = 'https://' + ('api.github.com' if host == 'github.com' else host + '/api/v3')
 owner = remote[3]
