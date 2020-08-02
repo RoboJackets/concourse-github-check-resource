@@ -93,7 +93,7 @@ git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=T
 assert git_remote_output.returncode == 0
 if len(git_remote_output.stdout.strip()) == 0:
     with open(path.join(repository, ".git", "resource", "url"), "r") as url_file:
-        remote = url_file.read()
+        remote = url_file.read().split("/")
 else:
     remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 
