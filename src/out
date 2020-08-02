@@ -34,7 +34,8 @@ def parse_yamllint_annotations(source_path):
                     "start_line": int(annotation_parts.group("line")),
                     "end_line": int(annotation_parts.group("line")),
                     "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
-                    "message": annotation_parts.group("message")
+                    "message": annotation_parts.group("message"),
+                    "raw_details": dumps(annotation_parts.groupdict),
                 })
 
     if len(files) == 0:
@@ -51,6 +52,121 @@ def parse_yamllint_annotations(source_path):
             "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
             "annotations": annotations
         }
+
+
+def parse_mypy_annotations(source_path):
+    regex = r"\A(?P<path>.*)\:(?P<line>\d+)\: (?P<level>note|error)\: (?P<message>.*)\Z"
+    files = set()
+    annotations = []
+
+    mypy_level_to_github_level = {
+        "note": "notice",
+        "error": "failure"
+    }
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            for line in file:
+                annotation_parts = fullmatch(regex, line.strip())
+                assert annotation_parts, f"Failed to parse line `{line.strip()}"
+                files.add(annotation_parts.group("path"))
+                annotations.append({
+                    "path": annotation_parts.group("path"),
+                    "start_line": int(annotation_parts.group("line")),
+                    "end_line": int(annotation_parts.group("line")),
+                    "annotation_level": mypy_level_to_github_level[annotation_parts.group("level")],
+                    "message": annotation_parts.group("message"),
+                    "raw_details": dumps(annotation_parts.groupdict),
+                })
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All Python files are type-safe."
+        }
+    else:
+        annotations_plural = "" if len(annotations) == 1 else "s"
+        files_plural = "" if len(files) == 1 else "s"
+        is_plural = "is" if len(files) == 1 else "are"
+        return {
+            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+            "summary": f"The below file{files_plural} {is_plural} not type-safe.",
+            "annotations": annotations
+        }
+
+def parse_flake8_annotations(source_path):
+    files = set()
+    annotations = []
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            flake8_json = load(file)
+
+            for filename in flake8_json.keys():
+                files.add(filename)
+
+                for annotation in flake8_json[filename]:
+                    annotations.append({
+                        "path": filename,
+                        "start_line": annotation["line_number"],
+                        "end_line": annotation["line_number"],
+                        "annotation_level": "failure",
+                        "message": annotation['text'],
+                        "raw_details": dumps(annotation),
+                    })
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All Python files meet the configured style standard."
+        }
+    else:
+        annotations_plural = "" if len(annotations) == 1 else "s"
+        files_plural = "" if len(files) == 1 else "s"
+        do_plural = "es" if len(files) == 1 else ""
+        return {
+            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+            "annotations": annotations
+        }
+
+
+def parse_pylint_annotations(source_path):
+    files = set()
+    annotations = []
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            pylint_json = load(file)
+
+            for annotation in pylint_json:
+                files.add(annotation["path"])
+
+                annotations.append({
+                    "path": annotation["path"],
+                    "start_line": annotation["line"],
+                    "end_line": annotation["line"],
+                    "annotation_level": "failure",
+                    "message": annotation['message'],
+                    "raw_details": dumps(annotation),
+                })
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All Python files meet the configured style standard."
+        }
+    else:
+        annotations_plural = "" if len(annotations) == 1 else "s"
+        files_plural = "" if len(files) == 1 else "s"
+        do_plural = "es" if len(files) == 1 else ""
+        return {
+            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+            "annotations": annotations
+        }
+
+
 
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
@@ -150,11 +266,11 @@ if path.exists(state_file_path):
                 'summary': 'Review the output within Concourse.',
             }
 
-    if "annotations_format" in concourse_input["source"]:
+    if "annotations_format" in concourse_input["source"] and conclusion in ["success", "failure"]:
         annotations_format = concourse_input["source"]["annotations_format"]
         assert isinstance(annotations_format, str)
         if "annotations_location" in concourse_input["source"]:
-            annotations_location = concourse_input["source"]["annotations_format"]
+            annotations_location = concourse_input["source"]["annotations_location"]
         else:
             annotations_location = annotations_format
         annotations_path = path.join(input_directory, annotations_location)
@@ -164,11 +280,23 @@ if path.exists(state_file_path):
         if len(listdir(annotations_path)) == 0:
             print("No input files found for annotations.", file=stderr)
         else:
-            if annotations_format == "yamllint":
-                data["output"] = parse_yamllint_annotations(annotations_path)
-            else:
-                print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
-                exit(1)
+            try:
+                if annotations_format == "yamllint":
+                    data["output"] = parse_yamllint_annotations(annotations_path)
+                elif annotations_format == "flake8":
+                    data["output"] = parse_flake8_annotations(annotations_path)
+                elif annotations_format == "pylint":
+                    data["output"] = parse_pylint_annotations(annotations_path)
+                elif annotations_format == "mypy":
+                    data["output"] = parse_mypy_annotations(annotations_path)
+                else:
+                    print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
+                    exit(1)
+            except:
+                data["output"] = {
+                    "title": "Failed to parse annotations",
+                    "summary": f"Review the output within Concourse, or run `fly intercept --job={getenv('BUILD_PIPELINE_NAME')}/{getenv('BUILD_JOB_NAME')} --build={getenv('BUILD_NAME')}` to examine the container."
+                }
 
     headers = {
         'Authorization': 'Bearer ' + concourse_input['source']['token'],
