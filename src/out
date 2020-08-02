@@ -13,8 +13,10 @@ def timestamp_for_github():
 
 
 def parse_yamllint_annotations(source_path):
+    print("in parse", file=stderr)
     annotations=[]
     for source_file in listdir(source_path):
+        print("found file " + source_file, file=stderr)
         note_levels={
             "warning": "warning",
             "error": "failure"
@@ -23,6 +25,7 @@ def parse_yamllint_annotations(source_path):
 
         with open(source_file, "r") as file:
             for line in file:
+                print("line " + line, file=stderr)
                 note_parts = re.split(regex, test_str)
                 note = {
                     "path": note_parts[1],
@@ -31,7 +34,9 @@ def parse_yamllint_annotations(source_path):
                     "annotation_level": note_levels[note_parts[3]],
                     "message": note_parts[4]
                 }
+                print(note, file=stderr)
                 annotations.append(note)
+    print(annotations, file=stderr)
     return annotations
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
@@ -64,7 +69,7 @@ repository = path.join(input_directory, concourse_input['source']['repository'])
 assert path.exists(repository)
 assert path.isdir(repository)
 
-if len(listdir(input_directory)) > 2:
+if len(listdir(input_directory)) > 3:
     print("To improve performance, you may want to manually configure the inputs to this step. See the documentation for more information.", file=stderr)
 
 git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True, capture_output=True)
@@ -152,6 +157,9 @@ if path.exists(state_file_path):
         'User-Agent': 'concourse-github-check-resource',
         'Accept': 'application/vnd.github.antiope-preview+json'
     }
+
+
+    print(data, file=stderr)
 
     response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
     assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
