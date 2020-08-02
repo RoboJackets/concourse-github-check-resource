@@ -21,8 +21,8 @@ def parse_yamllint_annotations(source_path):
         }
         regex = r"(.*)[:](.*)[:].*[:] [[](warning|error)[]] (.*)"
 
-        with open(source_file, "r"):
-            for line in source_file:
+        with open(source_file, "r") as file:
+            for line in file:
                 note_parts = re.split(regex, test_str)
                 note = {
                     "path": note_parts[1],
