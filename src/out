@@ -6,7 +6,7 @@ from subprocess import run
 from os import getenv, path, listdir
 from datetime import datetime
 from requests import patch, post
-
+import re
 
 def timestamp_for_github():
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
@@ -19,17 +19,17 @@ def parse_yamllint_annotations(source_path):
             "warning": "warning",
             "error": "failure"
         }
-        regex = r"(.*)[:](.*)[:].*[:] [[](warning|error)[]] (.*)"
+        regex = r"(?P<path>.*)[:](?P<line>.*)[:].*[:] [[](?P<level>warning|error)[]] (?P<message>.*)"
 
         with open(source_file, "r") as file:
             for line in file:
-                note_parts = re.split(regex, test_str)
+                note_parts = re.match(regex, line)
                 note = {
-                    "path": note_parts[1],
-                    "start_line": note_parts[2],
-                    "end_line": note_parts[2],
-                    "annotation_level": note_levels[note_parts[3]],
-                    "message": note_parts[4]
+                    "path": note_parts.group("path"),
+                    "start_line": note_parts.group("line"),
+                    "end_line": note_parts.group("line"),
+                    "annotation_level": note_levels[note_parts.group("level")],
+                    "message": note_parts.group("message")
                 }
                 annotations.append(note)
     return annotations
