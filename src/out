@@ -170,7 +170,7 @@ def parse_pylint_annotations(source_path):
 
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
-optional_source_fields = ("annotations_format", "annotations_location")
+optional_source_fields = ("annotations_format", "annotations_location", "pull_request")
 conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
 
 timestamp = timestamp_for_github()
