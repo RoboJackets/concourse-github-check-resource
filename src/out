@@ -195,6 +195,10 @@ for source_field in concourse_input["source"]:
     assert source_field in required_source_fields or source_field in optional_source_fields, f"Unexpected field `{source_field}` passed in `source`"
 
 repository = path.join(input_directory, concourse_input['source']['repository'])
+pull_request = path.join(input_directory, concourse_input['source']['pull_request'])
+
+if not path.exists(repository) and "pull_request" in concourse_input["source"] and path.exists(pull_request):
+    repository = pull_request
 
 assert path.exists(repository)
 assert path.isdir(repository)

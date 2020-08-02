@@ -4,13 +4,14 @@ Concourse resource for GitHub Checks
 ## Source configuration
 
 - `repository` (required) - the resource where your source code is provided
+- `pull_request` (optional) - the resource where pull requests are provided
 - `token` (required) - GitHub App token to use to authenticate
 - `check_name` (required) - the name of the check within GitHub
 - `resource_name` (required) - the name of the resource within Concourse
 - `annotations_format` (optional) - the format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), and `pylint`
 - `annotations_location` (optional) - the location of annotations; by default, this is the same as `annotations_format`, but you can provide another path if necessary
 
-GitHub endpoint information, commit SHA, and the URL to the Concourse job log will be derived from the environment.
+GitHub endpoint information, commit SHA, and the URL to the Concourse job log will be derived from the environment. `repository` will be used first, then `pull_request` if it is not available.
 
 ## Behavior
 Do not `get` this resource manually, it will not work.
