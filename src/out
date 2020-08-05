@@ -3,7 +3,7 @@
 from json import dumps, loads, load
 from sys import stdin, stderr, argv
 from subprocess import run
-from os import getenv, path, listdir
+from os import getenv, path, listdir, stat
 from datetime import datetime
 from requests import patch, post
 from re import fullmatch
@@ -95,11 +95,15 @@ def parse_mypy_annotations(source_path):
             "annotations": annotations
         }
 
+
 def parse_flake8_annotations(source_path):
     files = set()
     annotations = []
 
     for source_file in listdir(source_path):
+        if stat(source_file).st_size == 0:
+            # Flake8 outputs zero bytes if there are no issues
+            continue
         with open(path.join(source_path, source_file), "r") as file:
             flake8_json = load(file)
 
@@ -280,7 +284,7 @@ if path.exists(state_file_path):
         else:
             annotations_location = annotations_format
         annotations_path = path.join(input_directory, annotations_location)
-        assert path.exists(annotations_path)
+        assert path.exists(annotations_path), f"Make sure you added `{annotations_location}` to `inputs`"
         assert path.isdir(annotations_path)
 
         if len(listdir(annotations_path)) == 0:

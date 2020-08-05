@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "concourse-github-check-resource"
+version = "0"
+description = "Concourse resource for GitHub Checks"
+authors = ["Kristaps Berzinch <kristapsberzinch@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = "*"
+
+[tool.poetry.dev-dependencies]
+black = "^19.10b0"
+flake8 = "*"
+flake8-black = "*"
+flake8-bugbear = "*"
+flake8-import-order = "*"
+flake8-json = "*"
+mypy = "*"
+pylint = "*"
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
