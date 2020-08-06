@@ -134,9 +134,9 @@ def parse_flake8_annotations(source_path: str) -> Dict[str, Union[str, List[Dict
             flake8_json = load(file)
 
             for filename in flake8_json.keys():
-                files.add(filename)
 
                 for annotation in flake8_json[filename]:
+                    files.add(filename)
                     annotations.append(
                         {
                             "path": filename,
