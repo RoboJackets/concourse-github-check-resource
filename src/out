@@ -57,7 +57,7 @@ def parse_yamllint_annotations(source_path: str) -> Dict[str, Union[str, List[Di
                     }
                 )
 
-    if len(files) == 0:
+    if len(annotations) == 0:
         return {
             "title": "No issues found",
             "summary": "All YAML files meet the configured style standard.",
@@ -103,7 +103,7 @@ def parse_mypy_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[s
                     }
                 )
 
-    if len(files) == 0:
+    if len(annotations) == 0:
         return {"title": "No issues found", "summary": "All Python files are type-safe."}
 
     annotations_plural = "" if len(annotations) == 1 else "s"
@@ -148,7 +148,7 @@ def parse_flake8_annotations(source_path: str) -> Dict[str, Union[str, List[Dict
                         }
                     )
 
-    if len(files) == 0:
+    if len(annotations) == 0:
         return {
             "title": "No issues found",
             "summary": "All Python files meet the configured style standard.",
