@@ -1,28 +1,44 @@
 #!/usr/bin/env python3
 
-from json import dumps, loads, load
-from sys import stdin, stderr, argv
-from subprocess import run
-from os import getenv, path, listdir, stat
+"""
+Calls the GitHub API to create or update a check run
+"""
+import sys
 from datetime import datetime
-from requests import patch, post
+from json import dumps, load, loads
+from os import getenv, listdir, path, stat
 from re import fullmatch
+from subprocess import run
+from sys import argv, stderr, stdin
 from traceback import format_exc
+from typing import Dict, Union, List
+
+from requests import patch, post
 
 
-def timestamp_for_github():
+def timestamp_for_github() -> str:
+    """
+    Returns a timestamp in the format GitHub expects
+
+    :return: String representation of the current time in ISO 8601 format, in UTC
+    """
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 
-def parse_yamllint_annotations(source_path):
-    regex = r"\A\.?\/?(?P<path>.*)\:(?P<line>\d+)\:\d+\: \[(?P<level>warning|error)\] (?P<message>.*) \((?P<rule>.*)\)\Z"
+def parse_yamllint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for yammllint
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    regex = (
+        r"\A\.?\/?(?P<path>.*)\:(?P<line>\d+)\:\d+\: \[(?P<level>warning|error)\] (?P<message>.*) \((?P<rule>.*)\)\Z"
+    )
     files = set()
     annotations = []
 
-    yammlint_level_to_github_level = {
-        "warning": "warning",
-        "error": "failure"
-    }
+    yammlint_level_to_github_level = {"warning": "warning", "error": "failure"}
 
     for source_file in listdir(source_path):
         with open(path.join(source_path, source_file), "r") as file:
@@ -30,40 +46,45 @@ def parse_yamllint_annotations(source_path):
                 annotation_parts = fullmatch(regex, line.strip())
                 assert annotation_parts, f"Failed to parse line `{line.strip()}"
                 files.add(annotation_parts.group("path"))
-                annotations.append({
-                    "path": annotation_parts.group("path"),
-                    "start_line": int(annotation_parts.group("line")),
-                    "end_line": int(annotation_parts.group("line")),
-                    "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
-                    "message": annotation_parts.group("message"),
-                    "raw_details": dumps(annotation_parts.groupdict()),
-                })
+                annotations.append(
+                    {
+                        "path": annotation_parts.group("path"),
+                        "start_line": int(annotation_parts.group("line")),
+                        "end_line": int(annotation_parts.group("line")),
+                        "annotation_level": yammlint_level_to_github_level[annotation_parts.group("level")],
+                        "message": annotation_parts.group("message"),
+                        "raw_details": dumps(annotation_parts.groupdict()),
+                    }
+                )
 
     if len(files) == 0:
         return {
             "title": "No issues found",
-            "summary": "All YAML files meet the configured style standard."
-        }
-    else:
-        annotations_plural = "" if len(annotations) == 1 else "s"
-        files_plural = "" if len(files) == 1 else "s"
-        do_plural = "es" if len(files) == 1 else ""
-        return {
-            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
-            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
-            "annotations": annotations
+            "summary": "All YAML files meet the configured style standard.",
         }
 
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
 
-def parse_mypy_annotations(source_path):
+
+def parse_mypy_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for mypy
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
     regex = r"\A(?P<path>.*)\:(?P<line>\d+)\: (?P<level>note|error)\: (?P<message>.*)\Z"
     files = set()
     annotations = []
 
-    mypy_level_to_github_level = {
-        "note": "notice",
-        "error": "failure"
-    }
+    mypy_level_to_github_level = {"note": "notice", "error": "failure"}
 
     for source_file in listdir(source_path):
         with open(path.join(source_path, source_file), "r") as file:
@@ -71,32 +92,37 @@ def parse_mypy_annotations(source_path):
                 annotation_parts = fullmatch(regex, line.strip())
                 assert annotation_parts, f"Failed to parse line `{line.strip()}"
                 files.add(annotation_parts.group("path"))
-                annotations.append({
-                    "path": annotation_parts.group("path"),
-                    "start_line": int(annotation_parts.group("line")),
-                    "end_line": int(annotation_parts.group("line")),
-                    "annotation_level": mypy_level_to_github_level[annotation_parts.group("level")],
-                    "message": annotation_parts.group("message"),
-                    "raw_details": dumps(annotation_parts.groupdict()),
-                })
+                annotations.append(
+                    {
+                        "path": annotation_parts.group("path"),
+                        "start_line": int(annotation_parts.group("line")),
+                        "end_line": int(annotation_parts.group("line")),
+                        "annotation_level": mypy_level_to_github_level[annotation_parts.group("level")],
+                        "message": annotation_parts.group("message"),
+                        "raw_details": dumps(annotation_parts.groupdict()),
+                    }
+                )
 
     if len(files) == 0:
-        return {
-            "title": "No issues found",
-            "summary": "All Python files are type-safe."
-        }
-    else:
-        annotations_plural = "" if len(annotations) == 1 else "s"
-        files_plural = "" if len(files) == 1 else "s"
-        is_plural = "is" if len(files) == 1 else "are"
-        return {
-            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
-            "summary": f"The below file{files_plural} {is_plural} not type-safe.",
-            "annotations": annotations
-        }
+        return {"title": "No issues found", "summary": "All Python files are type-safe."}
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    is_plural = "is" if len(files) == 1 else "are"
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} {is_plural} not type-safe.",
+        "annotations": annotations,
+    }
 
 
-def parse_flake8_annotations(source_path):
+def parse_flake8_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for flake8
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
     files = set()
     annotations = []
 
@@ -111,32 +137,40 @@ def parse_flake8_annotations(source_path):
                 files.add(filename)
 
                 for annotation in flake8_json[filename]:
-                    annotations.append({
-                        "path": filename,
-                        "start_line": annotation["line_number"],
-                        "end_line": annotation["line_number"],
-                        "annotation_level": "failure",
-                        "message": annotation['text'],
-                        "raw_details": dumps(annotation),
-                    })
+                    annotations.append(
+                        {
+                            "path": filename,
+                            "start_line": annotation["line_number"],
+                            "end_line": annotation["line_number"],
+                            "annotation_level": "failure",
+                            "message": annotation["text"],
+                            "raw_details": dumps(annotation),
+                        }
+                    )
 
     if len(files) == 0:
         return {
             "title": "No issues found",
-            "summary": "All Python files meet the configured style standard."
-        }
-    else:
-        annotations_plural = "" if len(annotations) == 1 else "s"
-        files_plural = "" if len(files) == 1 else "s"
-        do_plural = "es" if len(files) == 1 else ""
-        return {
-            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
-            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
-            "annotations": annotations
+            "summary": "All Python files meet the configured style standard.",
         }
 
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
 
-def parse_pylint_annotations(source_path):
+
+def parse_pylint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for pylint
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
     files = set()
     annotations = []
 
@@ -147,36 +181,46 @@ def parse_pylint_annotations(source_path):
             for annotation in pylint_json:
                 files.add(annotation["path"])
 
-                annotations.append({
-                    "path": annotation["path"],
-                    "start_line": annotation["line"],
-                    "end_line": annotation["line"],
-                    "annotation_level": "failure",
-                    "message": annotation['message'],
-                    "raw_details": dumps(annotation),
-                })
+                annotations.append(
+                    {
+                        "path": annotation["path"],
+                        "start_line": annotation["line"],
+                        "end_line": annotation["line"],
+                        "annotation_level": "failure",
+                        "message": annotation["message"],
+                        "raw_details": dumps(annotation),
+                    }
+                )
 
     if len(files) == 0:
         return {
             "title": "No issues found",
-            "summary": "All Python files meet the configured style standard."
-        }
-    else:
-        annotations_plural = "" if len(annotations) == 1 else "s"
-        files_plural = "" if len(files) == 1 else "s"
-        do_plural = "es" if len(files) == 1 else ""
-        return {
-            "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
-            "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
-            "annotations": annotations
+            "summary": "All Python files meet the configured style standard.",
         }
 
-
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
 
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
 optional_source_fields = ("annotations_format", "annotations_location", "pull_request")
-conclusion_options = ("success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required")
+conclusion_options = (
+    "success",
+    "failure",
+    "neutral",
+    "cancelled",
+    "skipped",
+    "timed_out",
+    "action_required",
+)
+
+required_environment_variables = ("ATC_EXTERNAL_URL", "BUILD_TEAM_NAME", "BUILD_PIPELINE_NAME", "BUILD_JOB_NAME", "BUILD_NAME")
 
 timestamp = timestamp_for_github()
 
@@ -197,12 +241,14 @@ for source_field in required_source_fields:
     assert source_field in concourse_input["source"], f"Missing required field `{source_field}`in `source`"
 
 for source_field in concourse_input["source"]:
-    assert source_field in required_source_fields or source_field in optional_source_fields, f"Unexpected field `{source_field}` passed in `source`"
+    assert (
+        source_field in required_source_fields or source_field in optional_source_fields
+    ), f"Unexpected field `{source_field}` passed in `source`"
 
-repository = path.join(input_directory, concourse_input['source']['repository'])
+repository = path.join(input_directory, concourse_input["source"]["repository"])
 
 if not path.exists(repository) and "pull_request" in concourse_input["source"]:
-    pull_request = path.join(input_directory, concourse_input['source']['pull_request'])
+    pull_request = path.join(input_directory, concourse_input["source"]["pull_request"])
     if path.exists(pull_request):
         repository = pull_request
 
@@ -210,13 +256,13 @@ assert path.exists(repository)
 assert path.isdir(repository)
 
 if len(listdir(input_directory)) > 3:
-    print("To improve performance, you may want to manually configure the inputs to this step. See the documentation for more information.", file=stderr)
+    print(
+        "To improve performance, you may want to manually configure the inputs to this step.", file=stderr,
+    )
 
-git_rev_parse_output = run(['git', '-C', repository, 'rev-parse', 'HEAD'], text=True, capture_output=True)
-assert git_rev_parse_output.returncode == 0
+git_rev_parse_output = run(["git", "-C", repository, "rev-parse", "HEAD"], text=True, capture_output=True, check=True)
 
-git_remote_output = run(['git', '-C', repository, 'remote', '--verbose'], text=True, capture_output=True)
-assert git_remote_output.returncode == 0
+git_remote_output = run(["git", "-C", repository, "remote", "--verbose"], text=True, capture_output=True, check=True)
 if len(git_remote_output.stdout.strip()) == 0:
     with open(path.join(repository, ".git", "resource", "url"), "r") as url_file:
         remote = url_file.read().split("/")
@@ -224,14 +270,25 @@ else:
     remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 
 host = remote[2]
-api_base_url = 'https://' + ('api.github.com' if host == 'github.com' else host + '/api/v3')
+api_base_url = "https://" + ("api.github.com" if host == "github.com" else host + "/api/v3")
 owner = remote[3]
 repo = remote[4].split(" ")[0]
 head_sha = git_rev_parse_output.stdout.strip()
-name = concourse_input['source']['check_name']
-details_url = getenv('ATC_EXTERNAL_URL') + '/teams/' + getenv('BUILD_TEAM_NAME') + '/pipelines/' + getenv('BUILD_PIPELINE_NAME') + '/jobs/' + getenv('BUILD_JOB_NAME') + '/builds/' + getenv('BUILD_NAME')
+name = concourse_input["source"]["check_name"]
 
-state_file_path = path.join(input_directory, concourse_input['source']['resource_name'], "state.json")
+details_url = (
+    getenv("ATC_EXTERNAL_URL")  # type: ignore
+    + "/teams/"  # type: ignore
+    + getenv("BUILD_TEAM_NAME")
+    + "/pipelines/"
+    + getenv("BUILD_PIPELINE_NAME")
+    + "/jobs/"
+    + getenv("BUILD_JOB_NAME")
+    + "/builds/"
+    + getenv("BUILD_NAME")
+)
+
+state_file_path = path.join(input_directory, concourse_input["source"]["resource_name"], "state.json")
 
 if path.exists(state_file_path):
     assert path.isfile(state_file_path)
@@ -250,30 +307,32 @@ if path.exists(state_file_path):
 
     assert "conclusion" in params, "`conclusion` required in `params` to update an existing check"
 
-    conclusion = params['conclusion']
+    conclusion = params["conclusion"]
 
-    assert conclusion in conclusion_options, "Invalid `conclusion` specified - refer to the GitHub API documentation for possible values"
+    assert (
+        conclusion in conclusion_options
+    ), "Invalid `conclusion` specified - refer to the GitHub API documentation for possible values"
 
     data = {
-        'conclusion': conclusion,
-        'completed_at': timestamp,
+        "conclusion": conclusion,
+        "completed_at": timestamp,
     }
 
-    if 'title' in params and 'summary' in params:
-        data['output'] = {
-            'title': params["title"],
-            'summary': params["summary"],
+    if "title" in params and "summary" in params:
+        data["output"] = {
+            "title": params["title"],
+            "summary": params["summary"],
         }
     else:
-        if conclusion == 'cancelled':
-            data['output'] = {
-                'title': 'Task cancelled by user',
-                'summary': 'Re-run the job within Concourse.',
+        if conclusion == "cancelled":
+            data["output"] = {
+                "title": "Task cancelled by user",
+                "summary": "Re-run the job within Concourse.",
             }
-        if conclusion == 'action_required':
-            data['output'] = {
-                'title': 'Error running task',
-                'summary': 'Review the output within Concourse.',
+        if conclusion == "action_required":
+            data["output"] = {
+                "title": "Error running task",
+                "summary": "Review the output within Concourse.",
             }
 
     if "annotations_format" in concourse_input["source"] and conclusion in ["success", "failure"]:
@@ -301,93 +360,86 @@ if path.exists(state_file_path):
                     data["output"] = parse_mypy_annotations(annotations_path)
                 else:
                     print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
-                    exit(1)
-            except:
+                    sys.exit(1)
+            except Exception:  # pylint: disable=W0703
                 print(format_exc(), file=stderr)
                 data["output"] = {
                     "title": "Failed to parse annotations",
-                    "summary": f"Review the output within Concourse, or run `fly intercept --job={getenv('BUILD_PIPELINE_NAME')}/{getenv('BUILD_JOB_NAME')} --build={getenv('BUILD_NAME')}` to examine the container."
+                    "summary": "Review the output within Concourse, or run `fly intercept --job="  # type: ignore
+                    + getenv("BUILD_PIPELINE_NAME")
+                    + "/"
+                    + getenv("BUILD_JOB_NAME")
+                    + " --build="
+                    + getenv("BUILD_NAME")
+                    + "` to examine the container.",
                 }
 
     headers = {
-        'Authorization': 'Bearer ' + concourse_input['source']['token'],
-        'User-Agent': 'concourse-github-check-resource',
-        'Accept': 'application/vnd.github.antiope-preview+json'
+        "Authorization": "Bearer " + concourse_input["source"]["token"],
+        "User-Agent": "concourse-github-check-resource",
+        "Accept": "application/vnd.github.antiope-preview+json",
     }
 
     if "output" in data and "annotations" in data["output"] and len(data["output"]["annotations"]) > 0:
         original_annotations = data["output"]["annotations"]
-        n = 50  # GitHub API only accepts 50 annotations per call
-        for chunked_annotations in [original_annotations[i * n:(i + 1) * n] for i in range((len(original_annotations) + n - 1) // n)]:
+        CHECKS_PER_CALL = 50  # GitHub API only accepts 50 annotations per call
+        for chunked_annotations in [
+            original_annotations[i * CHECKS_PER_CALL : (i + 1) * CHECKS_PER_CALL]  # noqa: E203
+            for i in range((len(original_annotations) + CHECKS_PER_CALL - 1) // CHECKS_PER_CALL)
+        ]:
             data["output"]["annotations"] = chunked_annotations
-            response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
-            assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+            response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers,)
+            assert (
+                response.status_code == 200
+            ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
     else:
         response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
-        assert response.status_code == 200, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+        assert (
+            response.status_code == 200
+        ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
 
-    url = response.json()['url']
-    html_url = response.json()['html_url']
+    url = response.json()["url"]
+    html_url = response.json()["html_url"]
 
     print(
         dumps(
             {
-                'version': {
-                    'id': check_id
-                },
-                'metadata': [
-                    {
-                        'name': 'url',
-                        'value': url
-                    },
-                    {
-                        'name': 'html_url',
-                        'value': html_url
-                    }
-                ]
+                "version": {"id": check_id},
+                "metadata": [{"name": "url", "value": url}, {"name": "html_url", "value": html_url},],  # noqa: E231
             }
         )
     )
 else:
     data = {
-        'name': name,
-        'head_sha': head_sha,
-        'details_url': details_url,
-        'status': 'in_progress',
-        'started_at': timestamp_for_github(),
+        "name": name,
+        "head_sha": head_sha,
+        "details_url": details_url,
+        "status": "in_progress",
+        "started_at": timestamp_for_github(),
     }
 
     headers = {
-        'Authorization': 'Bearer ' + concourse_input['source']['token'],
-        'User-Agent': 'concourse-github-check-resource',
-        'Accept': 'application/vnd.github.antiope-preview+json'
+        "Authorization": "Bearer " + concourse_input["source"]["token"],
+        "User-Agent": "concourse-github-check-resource",
+        "Accept": "application/vnd.github.antiope-preview+json",
     }
 
     response = post(f"{api_base_url}/repos/{owner}/{repo}/check-runs", json=data, headers=headers)
-    assert response.status_code == 201, f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+    assert (
+        response.status_code == 201
+    ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
 
     json = response.json()
 
     check_id = json["id"]
-    url = json['url']
-    html_url = json['html_url']
+    url = json["url"]
+    html_url = json["html_url"]
 
     print(
         dumps(
             {
-                'version': {
-                    'id': str(check_id)
-                },
-                'metadata': [
-                    {
-                        'name': 'url',
-                        'value': url
-                    },
-                    {
-                        'name': 'html_url',
-                        'value': html_url
-                    }
-                ]
+                "version": {"id": str(check_id)},
+                "metadata": [{"name": "url", "value": url}, {"name": "html_url", "value": html_url},],  # noqa: E231
             }
         )
     )

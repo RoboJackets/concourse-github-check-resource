@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+Writes the provided version to a state file
+"""
+
 from json import dump, dumps, loads
-from sys import stdin, argv
 from os import path
+from sys import argv, stdin
 
 assert len(argv) == 2
 
@@ -22,12 +26,4 @@ assert path.isdir(output_directory)
 with open(output_directory + "/state.json", "w") as state_file:
     dump({"id": version_id}, state_file)
 
-print(
-    dumps(
-        {
-            "version": {
-                "id": version_id,
-            }
-        }
-    )
-)
+print(dumps({"version": {"id": version_id,}}))  # noqa: E231
