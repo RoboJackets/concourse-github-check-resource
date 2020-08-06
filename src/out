@@ -11,7 +11,7 @@ from re import fullmatch
 from subprocess import run
 from sys import argv, stderr, stdin
 from traceback import format_exc
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 from requests import patch, post
 
@@ -219,8 +219,6 @@ conclusion_options = (
     "timed_out",
     "action_required",
 )
-
-required_environment_variables = ("ATC_EXTERNAL_URL", "BUILD_TEAM_NAME", "BUILD_PIPELINE_NAME", "BUILD_JOB_NAME", "BUILD_NAME")
 
 timestamp = timestamp_for_github()
 
