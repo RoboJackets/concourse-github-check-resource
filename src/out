@@ -3,6 +3,7 @@
 """
 Calls the GitHub API to create or update a check run
 """
+import logging
 import sys
 from datetime import datetime
 from json import dumps, load, loads
@@ -209,7 +210,7 @@ def parse_pylint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict
 
 
 required_source_fields = ("repository", "token", "check_name", "resource_name")
-optional_source_fields = ("annotations_format", "annotations_location", "pull_request")
+optional_source_fields = ("annotations_format", "annotations_location", "pull_request", "debug")
 conclusion_options = (
     "success",
     "failure",
@@ -242,6 +243,20 @@ for source_field in concourse_input["source"]:
     assert (
         source_field in required_source_fields or source_field in optional_source_fields
     ), f"Unexpected field `{source_field}` passed in `source`"
+
+if "debug" in concourse_input["source"]:
+    if not concourse_input["source"]["debug"] is True:
+        print("Debug flag set to invalid value, check documentation")
+        sys.exit(1)
+
+    handler = logging.StreamHandler(stderr)
+    handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+
+    logger.debug("Debug logging enabled")
 
 repository = path.join(input_directory, concourse_input["source"]["repository"])
 
