@@ -45,7 +45,7 @@ def parse_yamllint_annotations(source_path: str) -> Dict[str, Union[str, List[Di
         with open(path.join(source_path, source_file), "r") as file:
             for line in file:
                 annotation_parts = fullmatch(regex, line.strip())
-                assert annotation_parts, f"Failed to parse line `{line.strip()}"
+                assert annotation_parts, f"Failed to parse line `{line.strip()}`"
                 files.add(annotation_parts.group("path"))
                 annotations.append(
                     {
@@ -91,7 +91,7 @@ def parse_mypy_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[s
         with open(path.join(source_path, source_file), "r") as file:
             for line in file:
                 annotation_parts = fullmatch(regex, line.strip())
-                assert annotation_parts, f"Failed to parse line `{line.strip()}"
+                assert annotation_parts, f"Failed to parse line `{line.strip()}`"
                 files.add(annotation_parts.group("path"))
                 annotations.append(
                     {
@@ -134,8 +134,7 @@ def parse_flake8_annotations(source_path: str) -> Dict[str, Union[str, List[Dict
         with open(path.join(source_path, source_file), "r") as file:
             flake8_json = load(file)
 
-            for filename in flake8_json.keys():
-
+            for filename in flake8_json:
                 for annotation in flake8_json[filename]:
                     files.add(filename)
                     annotations.append(
@@ -197,6 +196,240 @@ def parse_pylint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict
         return {
             "title": "No issues found",
             "summary": "All Python files meet the configured style standard.",
+        }
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
+
+
+def parse_php_codesniffer_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for PHP CodeSniffer
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    files = set()
+    annotations = []
+
+    phpcs_level_to_github_level = {"WARNING": "warning", "ERROR": "failure"}
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            phpcs_json = load(file)
+
+            for filename in phpcs_json["files"]:
+                for annotation in phpcs_json["files"][filename]["messages"]:
+                    cleaned_filename = filename.split("/")[-len(source_path.split("/")) :].join("/")  # noqa: E203
+                    files.add(cleaned_filename)
+                    annotations.append(
+                        {
+                            "path": cleaned_filename,
+                            "start_line": annotation["line"],
+                            "end_line": annotation["line"],
+                            "annotation_level": phpcs_level_to_github_level[annotation["type"]],
+                            "message": annotation["message"],
+                            "raw_details": dumps(annotation),
+                        }
+                    )
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All PHP files meet the configured style standard.",
+        }
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
+
+
+def parse_phpstan_annotations(  # pylint: disable=R0914
+    source_path: str, phpstan_neon_contents: List[str]
+) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for PHPStan
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    files = set()
+    annotations = []
+
+    error_regexes = (
+        r"Ignored error pattern (?P<pattern>.+) was not matched in reported errors\.",
+        r"No ending delimiter .+ found in pattern: (?P<pattern>.+)\.",
+        r"Ignored error (?P<pattern>.+) has an unescaped anchor .+ in the middle\. This leads to unintended behavior\. Use .+ instead\.",  # noqa: E501  # pylint: disable=C0301
+    )
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            phpstan_json = load(file)
+
+            for filename in phpstan_json["files"]:
+                for annotation in phpstan_json["files"][filename]["messages"]:
+                    cleaned_filename = filename.split("/")[-len(source_path.split("/")) :].join("/")  # noqa: E203
+                    files.add(cleaned_filename)
+                    annotations.append(
+                        {
+                            "path": cleaned_filename,
+                            "start_line": annotation["line"],
+                            "end_line": annotation["line"],
+                            "annotation_level": "failure",
+                            "message": annotation["message"],
+                        }
+                    )
+                for error in phpstan_json["errors"]:
+                    for regex in error_regexes:
+                        error_match = fullmatch(regex, error)
+                        if error_match:
+                            break
+                    assert error_match, f"Failed to parse line `{error}`"
+                    pattern = error_match.group("pattern")
+
+                    line_counter = 0
+                    found = False
+                    for line in phpstan_neon_contents:
+                        line_counter += 1
+                        if pattern in line:
+                            found = True
+                            break
+
+                    assert found, "Expected to find pattern `{pattern}` in neon file"
+
+                    files.add("phpstan.neon")
+                    annotations.append(
+                        {
+                            "path": "phpstan.neon",
+                            "start_line": line_counter,
+                            "end_line": line_counter,
+                            "annotation_level": "failure",
+                            "message": error,
+                        }
+                    )
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All PHP files meet the configured style standard.",
+        }
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
+
+
+def parse_phan_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for phan
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    files = set()
+    annotations = []
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            phan_json = load(file)
+
+            for annotation in phan_json:
+                files.add(annotation["location"]["path"])
+
+                annotations.append(
+                    {
+                        "path": annotation["location"]["path"],
+                        "start_line": annotation["location"]["lines"]["begin"],
+                        "end_line": annotation["location"]["lines"]["begin"],
+                        "annotation_level": "failure",
+                        "message": annotation["description"],
+                        "raw_details": dumps(annotation),
+                    }
+                )
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All PHP files meet the configured style standard.",
+        }
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
+
+
+def parse_psalm_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for psalm
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    files = set()
+    annotations = []
+
+    psalm_severity_to_github_level = {
+        "info": "notice",
+        "error": "failure",
+    }
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            psalm_json = load(file)
+
+            for annotation in psalm_json:
+                files.add(annotation["file_name"])
+
+                if annotation["line_from"] == annotation["line_to"]:
+                    annotations.append(
+                        {
+                            "path": annotation["file_name"],
+                            "start_line": annotation["line_from"],
+                            "end_line": annotation["line_to"],
+                            "start_column": annotation["column_from"],
+                            "end_column": annotation["column_to"],
+                            "annotation_level": psalm_severity_to_github_level[annotation["severity"]],
+                            "message": annotation["message"],
+                            "raw_details": dumps(annotation),
+                        }
+                    )
+                else:
+                    annotations.append(
+                        {
+                            "path": annotation["file_name"],
+                            "start_line": annotation["line_from"],
+                            "end_line": annotation["line_to"],
+                            "annotation_level": psalm_severity_to_github_level[annotation["severity"]],
+                            "message": annotation["message"],
+                            "raw_details": dumps(annotation),
+                        }
+                    )
+
+    if len(files) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All PHP files meet the configured style standard.",
         }
 
     annotations_plural = "" if len(annotations) == 1 else "s"
@@ -377,6 +610,16 @@ if path.exists(state_file_path):
                     data["output"] = parse_pylint_annotations(annotations_path)
                 elif annotations_format == "mypy":
                     data["output"] = parse_mypy_annotations(annotations_path)
+                elif annotations_format == "codesniffer":
+                    data["output"] = parse_php_codesniffer_annotations(annotations_path)
+                elif annotations_format == "phpstan":
+                    with open(path.join(repository, "phpstan.neon"), "r") as phpstan_neon_file:
+                        phpstan_neon = phpstan_neon_file.readlines()
+                    data["output"] = parse_phpstan_annotations(annotations_path, phpstan_neon)
+                elif annotations_format == "phan":
+                    data["output"] = parse_phan_annotations(annotations_path)
+                elif annotations_format == "psalm":
+                    data["output"] = parse_psalm_annotations(annotations_path)
                 else:
                     print(f"Invalid annotations format `{annotations_format}` passed.", file=stderr)
                     sys.exit(1)

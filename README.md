@@ -10,7 +10,7 @@ Concourse resource for GitHub Checks
 - `token` (required) - GitHub App token to use to authenticate
 - `check_name` (required) - the name of the check within GitHub
 - `resource_name` (required) - the name of the resource within Concourse
-- `annotations_format` (optional) - the format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), and `pylint`
+- `annotations_format` (optional) - the format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), `pylint`, `codesniffer`, `phpstan`, `phan`, and `psalm`
 - `annotations_location` (optional) - the location of annotations; by default, this is the same as `annotations_format`, but you can provide another path if necessary
 - `debug` (optional) - whether to enable debug logging; must be set to boolean true if present
 
