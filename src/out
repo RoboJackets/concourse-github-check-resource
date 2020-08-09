@@ -301,6 +301,12 @@ details_url = (
     + getenv("BUILD_NAME")
 )
 
+headers = {
+    "Authorization": "Bearer " + concourse_input["source"]["token"],
+    "User-Agent": "concourse-github-check-resource",
+    "Accept": "application/vnd.github.antiope-preview+json",
+}
+
 state_file_path = path.join(input_directory, concourse_input["source"]["resource_name"], "state.json")
 
 if path.exists(state_file_path):
@@ -387,12 +393,6 @@ if path.exists(state_file_path):
                     + "` to examine the container.",
                 }
 
-    headers = {
-        "Authorization": "Bearer " + concourse_input["source"]["token"],
-        "User-Agent": "concourse-github-check-resource",
-        "Accept": "application/vnd.github.antiope-preview+json",
-    }
-
     if "output" in data and "annotations" in data["output"] and len(data["output"]["annotations"]) > 0:
         original_annotations = data["output"]["annotations"]
         CHECKS_PER_CALL = 50  # GitHub API only accepts 50 annotations per call
@@ -429,12 +429,6 @@ else:
         "details_url": details_url,
         "status": "in_progress",
         "started_at": timestamp_for_github(),
-    }
-
-    headers = {
-        "Authorization": "Bearer " + concourse_input["source"]["token"],
-        "User-Agent": "concourse-github-check-resource",
-        "Accept": "application/vnd.github.antiope-preview+json",
     }
 
     response = post(f"{api_base_url}/repos/{owner}/{repo}/check-runs", json=data, headers=headers)
