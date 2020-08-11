@@ -613,8 +613,12 @@ if path.exists(state_file_path):
                 elif annotations_format == "codesniffer":
                     data["output"] = parse_php_codesniffer_annotations(annotations_path)
                 elif annotations_format == "phpstan":
-                    with open(path.join(repository, "phpstan.neon"), "r") as phpstan_neon_file:
-                        phpstan_neon = phpstan_neon_file.readlines()
+                    neon_path = path.join(repository, "phpstan.neon")
+                    if path.exists(neon_path):
+                        with open(neon_path, "r") as phpstan_neon_file:
+                            phpstan_neon = phpstan_neon_file.readlines()
+                    else:
+                        phpstan_neon = []
                     data["output"] = parse_phpstan_annotations(annotations_path, phpstan_neon)
                 elif annotations_format == "phan":
                     data["output"] = parse_phan_annotations(annotations_path)
