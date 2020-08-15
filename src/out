@@ -319,7 +319,7 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
                         }
                     )
 
-    if len(files) == 0:
+    if len(annotations) == 0:
         return {
             "title": "No issues found",
             "summary": "All PHP files meet the configured style standard.",
