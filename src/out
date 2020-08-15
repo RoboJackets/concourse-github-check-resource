@@ -267,6 +267,8 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
     files = set()
     annotations = []
 
+    print(phpstan_neon_contents, file=stderr)
+
     error_regexes = (
         r"Ignored error pattern (?P<pattern>.+) was not matched in reported errors\.",
         r"No ending delimiter .+ found in pattern: (?P<pattern>.+)\.",
@@ -291,16 +293,21 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
                         }
                     )
                 for error in phpstan_json["errors"]:
+                    print(error, file=stderr)
                     for regex in error_regexes:
+                        print(regex, file=stderr)
                         error_match = fullmatch(regex, error)
+                        print(error_match, file=stderr)
                         if error_match:
                             break
                     assert error_match, f"Failed to parse line `{error}`"
                     pattern = error_match.group("pattern")
+                    print(pattern, file=stderr)
 
                     line_counter = 0
                     found = False
                     for line in phpstan_neon_contents:
+                        print(line)
                         line_counter += 1
                         if pattern in line:
                             found = True
@@ -614,11 +621,13 @@ if path.exists(state_file_path):
                     data["output"] = parse_php_codesniffer_annotations(annotations_path)
                 elif annotations_format == "phpstan":
                     neon_path = path.join(repository, "phpstan.neon")
+                    print(neon_path, file=stderr)
                     if path.exists(neon_path):
                         with open(neon_path, "r") as phpstan_neon_file:
                             phpstan_neon = phpstan_neon_file.readlines()
                     else:
                         phpstan_neon = []
+                    print(phpstan_neon, file=stderr)
                     data["output"] = parse_phpstan_annotations(annotations_path, phpstan_neon)
                 elif annotations_format == "phan":
                     data["output"] = parse_phan_annotations(annotations_path)
