@@ -226,7 +226,7 @@ def parse_php_codesniffer_annotations(source_path: str) -> Dict[str, Union[str, 
 
             for filename in phpcs_json["files"]:
                 for annotation in phpcs_json["files"][filename]["messages"]:
-                    cleaned_filename = filename.split("/")[-len(source_path.split("/")) :].join("/")  # noqa: E203
+                    cleaned_filename = "/".join(filename.split("/")[-(len(source_path.split("/")) - 1) :])  # noqa: E203
                     files.add(cleaned_filename)
                     annotations.append(
                         {
