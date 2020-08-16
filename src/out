@@ -442,7 +442,7 @@ def parse_psalm_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[
         return {
             "title": "No errors found",
             "summary": f"Found {len(annotations)} notice{annotations_plural} in {len(files)} file{files_plural}",
-            "annotations": annotations
+            "annotations": annotations,
         }
 
     return {
