@@ -534,7 +534,7 @@ name = concourse_input["source"]["check_name"]
 
 details_url = (
     getenv("ATC_EXTERNAL_URL")  # type: ignore
-    + "/teams/"  # type: ignore
+    + "/teams/"
     + getenv("BUILD_TEAM_NAME")
     + "/pipelines/"
     + getenv("BUILD_PIPELINE_NAME")
