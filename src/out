@@ -525,7 +525,13 @@ if len(git_remote_output.stdout.strip()) == 0:
 else:
     remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
 
-host = remote[2]
+maybe_host = remote[2]
+
+if "@" in maybe_host:
+    host = maybe_host.split("@")[1]
+else:
+    host = maybe_host
+
 api_base_url = "https://" + ("api.github.com" if host == "github.com" else host + "/api/v3")
 owner = remote[3]
 repo = remote[4].split(" ")[0]
