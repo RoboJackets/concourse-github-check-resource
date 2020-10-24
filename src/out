@@ -661,12 +661,12 @@ if path.exists(state_file_path):
             response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers,)
             assert (
                 response.status_code == 200
-            ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+            ), f"Got unexpected response code {response.status_code} from GitHub: {response.text}\nRequest body was {data}"  # noqa: E501  # pylint: disable=C0301
     else:
         response = patch(f"{api_base_url}/repos/{owner}/{repo}/check-runs/{check_id}", json=data, headers=headers)
         assert (
             response.status_code == 200
-        ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+        ), f"Got unexpected response code {response.status_code} from GitHub: {response.text}\nRequest body was {data}"
 
     url = response.json()["url"]
     html_url = response.json()["html_url"]
@@ -691,7 +691,7 @@ else:
     response = post(f"{api_base_url}/repos/{owner}/{repo}/check-runs", json=data, headers=headers)
     assert (
         response.status_code == 201
-    ), f"Got unexpected response code {response.status_code} from GitHub: {response.json()}"
+    ), f"Got unexpected response code {response.status_code} from GitHub: {response.text}\nRequest body was {data}"
 
     json = response.json()
 
