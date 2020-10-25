@@ -226,7 +226,7 @@ def parse_php_codesniffer_annotations(source_path: str) -> Dict[str, Union[str, 
 
             for filename in phpcs_json["files"]:
                 for annotation in phpcs_json["files"][filename]["messages"]:
-                    cleaned_filename = "/".join(filename.split("/")[(len(source_path.split("/")) + 2) :])  # noqa: E203
+                    cleaned_filename = "/".join(filename.split("/")[(len(source_path.split("/")) - 1) :])  # noqa: E203
                     files.add(cleaned_filename)
                     annotations.append(
                         {
@@ -279,7 +279,7 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
 
             for filename in phpstan_json["files"]:
                 for annotation in phpstan_json["files"][filename]["messages"]:
-                    cleaned_filename = "/".join(filename.split("/")[(len(source_path.split("/")) + 2) :])  # noqa: E203
+                    cleaned_filename = "/".join(filename.split("/")[(len(source_path.split("/")) - 1) :])  # noqa: E203
                     files.add(cleaned_filename)
                     annotations.append(
                         {
