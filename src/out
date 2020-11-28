@@ -279,6 +279,8 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
 
             for filename in phpstan_json["files"]:
                 for annotation in phpstan_json["files"][filename]["messages"]:
+                    if annotation["line"] is None:
+                        continue
                     cleaned_filename = "/".join(filename.split("/")[len(source_path.split("/")) :])  # noqa: E203
                     files.add(cleaned_filename)
                     annotations.append(
