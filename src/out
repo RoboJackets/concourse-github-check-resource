@@ -312,8 +312,8 @@ def parse_phpstan_annotations(  # pylint: disable=too-many-locals,too-many-branc
                         annotations.append(
                             {
                                 "path": error_match.group("path"),
-                                "start_line": error_match.group("line"),
-                                "end_line": error_match.group("line"),
+                                "start_line": int(error_match.group("line")),
+                                "end_line": int(error_match.group("line")),
                                 "annotation_level": "failure",
                                 "message": error_match.group("error"),
                             }
