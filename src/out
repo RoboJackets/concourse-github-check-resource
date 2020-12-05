@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from json import dumps, load, loads
 from os import getenv, listdir, path, stat
-from re import fullmatch
+from re import fullmatch, match
 from subprocess import run
 from sys import argv, stderr, stdin
 from traceback import format_exc
@@ -255,22 +255,27 @@ def parse_php_codesniffer_annotations(source_path: str) -> Dict[str, Union[str, 
     }
 
 
-def parse_phpstan_annotations(  # pylint: disable=R0914
+def parse_phpstan_annotations(  # pylint: disable=too-many-locals,too-many-branches
     source_path: str, phpstan_neon_contents: List[str]
 ) -> Dict[str, Union[str, List[Dict[str, object]]]]:
     """
     Parses annotations for PHPStan
 
+    :param phpstan_neon_contents: the contents of the phpstan.neon file
     :param source_path: the path to read for annotations
     :return: output object for the GitHub API
     """
     files = set()
     annotations = []
 
-    error_regexes = (
+    neon_error_regexes = (
         r"Ignored error pattern (?P<pattern>.+) was not matched in reported errors\.",
         r"No ending delimiter .+ found in pattern: (?P<pattern>.+)\.",
         r"Ignored error (?P<pattern>.+) has an unescaped anchor .+ in the middle\. This leads to unintended behavior\. Use .+ instead\.",  # noqa: E501  # pylint: disable=C0301
+    )
+
+    runtime_error_regexes = (
+        r"Child process error \(exit code 255\):\s+[A-Za-z\\]+\s+(?P<error>[a-zA-Z-_\ ]+)\s+at (?P<path>[a-zA-Z\/]+.php):(?P<line>\d+)",  # noqa: E501  # pylint: disable=C0301
     )
 
     for source_file in listdir(source_path):
@@ -293,10 +298,28 @@ def parse_phpstan_annotations(  # pylint: disable=R0914
                         }
                     )
             for error in phpstan_json["errors"]:
-                for regex in error_regexes:
+                for regex in neon_error_regexes:
                     error_match = fullmatch(regex, error)
                     if error_match:
                         break
+                if not error_match:
+                    for regex in runtime_error_regexes:
+                        error_match = match(regex, error)
+                        if error_match:
+                            break
+                    if error_match:
+                        files.add(error_match.group("path"))
+                        annotations.append(
+                            {
+                                "path": error_match.group("path"),
+                                "start_line": error_match.group("line"),
+                                "end_line": error_match.group("line"),
+                                "annotation_level": "failure",
+                                "message": error_match.group("error"),
+                            }
+                        )
+                        continue
+
                 assert error_match, f"Failed to parse line `{error}`"
                 pattern = error_match.group("pattern")
 
