@@ -26,6 +26,50 @@ def timestamp_for_github() -> str:
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 
+def parse_markdownlint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
+    """
+    Parses annotations for markdownlint
+
+    :param source_path: the path to read for annotations
+    :return: output object for the GitHub API
+    """
+    regex = r"\A(?P<path>[a-zA-Z0-9\.]+)\:(?P<line>\d+)(?:\:(?P<character>\d+))? (?P<rulecode>MD\d{3})/(?P<rulename>[a-z0-9\-]+)(/(?P<rulenamespecific>[a-z0-9\-]+))? (?P<message>.*)\Z"  # noqa: E501  # pylint: disable=C0301
+    files = set()
+    annotations = []
+
+    for source_file in listdir(source_path):
+        with open(path.join(source_path, source_file), "r") as file:
+            for line in file:
+                annotation_parts = fullmatch(regex, line.strip())
+                assert annotation_parts, f"Failed to parse line `{line.strip()}`"
+                files.add(annotation_parts.group("path"))
+                annotations.append(
+                    {
+                        "path": annotation_parts.group("path"),
+                        "start_line": int(annotation_parts.group("line")),
+                        "end_line": int(annotation_parts.group("line")),
+                        "annotation_level": "failure",
+                        "message": annotation_parts.group("message"),
+                        "raw_details": dumps(annotation_parts.groupdict()),
+                    }
+                )
+
+    if len(annotations) == 0:
+        return {
+            "title": "No issues found",
+            "summary": "All Markdown files meet the configured style standard.",
+        }
+
+    annotations_plural = "" if len(annotations) == 1 else "s"
+    files_plural = "" if len(files) == 1 else "s"
+    do_plural = "es" if len(files) == 1 else ""
+    return {
+        "title": f"Found {len(annotations)} issue{annotations_plural} in {len(files)} file{files_plural}",
+        "summary": f"The below file{files_plural} do{do_plural} not meet the configured style standard.",
+        "annotations": annotations,
+    }
+
+
 def parse_yamllint_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[str, object]]]]:
     """
     Parses annotations for yammllint
@@ -645,6 +689,8 @@ if path.exists(state_file_path):
             try:
                 if annotations_format == "yamllint":
                     data["output"] = parse_yamllint_annotations(annotations_path)
+                elif annotations_format == "markdownlint":
+                    data["output"] = parse_markdownlint_annotations(annotations_path)
                 elif annotations_format == "flake8":
                     data["output"] = parse_flake8_annotations(annotations_path)
                 elif annotations_format == "pylint":
