@@ -9,10 +9,11 @@ from datetime import datetime
 from json import dumps, load, loads
 from os import getenv, listdir, path, stat
 from re import fullmatch, match
-from subprocess import run
 from sys import argv, stderr, stdin
 from traceback import format_exc
 from typing import Dict, List, Union
+
+from jsonschema import validate  # type: ignore
 
 from requests import patch, post
 
@@ -521,18 +522,6 @@ def parse_psalm_annotations(source_path: str) -> Dict[str, Union[str, List[Dict[
     }
 
 
-required_source_fields = ("repository", "token", "check_name", "resource_name")
-optional_source_fields = ("annotations_format", "annotations_location", "pull_request", "debug")
-conclusion_options = (
-    "success",
-    "failure",
-    "neutral",
-    "cancelled",
-    "skipped",
-    "timed_out",
-    "action_required",
-)
-
 timestamp = timestamp_for_github()
 
 assert len(argv) == 2
@@ -542,24 +531,15 @@ input_directory = argv[1]
 assert path.exists(input_directory)
 assert path.isdir(input_directory)
 
+assert len(listdir(input_directory)) < 3
+
 concourse_input = loads(stdin.read())
 
-assert isinstance(concourse_input, dict)
-assert "source" in concourse_input, "Missing required `source` fields"
-assert isinstance(concourse_input["source"], dict), "`source` must be a dict, check pipeline configuration"
-
-for source_field in required_source_fields:
-    assert source_field in concourse_input["source"], f"Missing required field `{source_field}`in `source`"
-
-for source_field in concourse_input["source"]:
-    assert (
-        source_field in required_source_fields or source_field in optional_source_fields
-    ), f"Unexpected field `{source_field}` passed in `source`"
+with open("../schema/input.json", "r") as schema:
+    validate(instance=concourse_input, schema=load(schema))
 
 if "debug" in concourse_input["source"]:
-    if not concourse_input["source"]["debug"] is True:
-        print("Debug flag set to invalid value, check documentation")
-        sys.exit(1)
+    assert concourse_input["source"]["debug"] is True
 
     handler = logging.StreamHandler(stderr)
     handler.setLevel(logging.DEBUG)
@@ -570,29 +550,7 @@ if "debug" in concourse_input["source"]:
 
     logger.debug("Debug logging enabled")
 
-repository = path.join(input_directory, concourse_input["source"]["repository"])
-
-if not path.exists(repository) and "pull_request" in concourse_input["source"]:
-    pull_request = path.join(input_directory, concourse_input["source"]["pull_request"])
-    if path.exists(pull_request):
-        repository = pull_request
-
-assert path.exists(repository)
-assert path.isdir(repository)
-
-if len(listdir(input_directory)) > 3:
-    print(
-        "To improve performance, you may want to manually configure the inputs to this step.", file=stderr,
-    )
-
-git_rev_parse_output = run(["git", "-C", repository, "rev-parse", "HEAD"], text=True, capture_output=True, check=True)
-
-git_remote_output = run(["git", "-C", repository, "remote", "--verbose"], text=True, capture_output=True, check=True)
-if len(git_remote_output.stdout.strip()) == 0:
-    with open(path.join(repository, ".git", "resource", "url"), "r") as url_file:
-        remote = url_file.read().split("/")
-else:
-    remote = git_remote_output.stdout.strip().split("\n")[0].split("\t")[1].split("/")
+remote = concourse_input["source"]["repository_url"]
 
 maybe_host = remote[2]
 
@@ -604,7 +562,7 @@ else:
 api_base_url = "https://" + ("api.github.com" if host == "github.com" else host + "/api/v3")
 owner = remote[3]
 repo = remote[4].split(" ")[0]
-head_sha = git_rev_parse_output.stdout.strip()
+head_sha = concourse_input["source"]["commit"]
 name = concourse_input["source"]["check_name"]
 
 details_url = (
@@ -645,10 +603,6 @@ if path.exists(state_file_path):
     assert "conclusion" in params, "`conclusion` required in `params` to update an existing check"
 
     conclusion = params["conclusion"]
-
-    assert (
-        conclusion in conclusion_options
-    ), "Invalid `conclusion` specified - refer to the GitHub API documentation for possible values"
 
     data = {
         "conclusion": conclusion,
@@ -700,10 +654,8 @@ if path.exists(state_file_path):
                 elif annotations_format == "codesniffer":
                     data["output"] = parse_php_codesniffer_annotations(annotations_path)
                 elif annotations_format == "phpstan":
-                    neon_path = path.join(repository, "phpstan.neon")
-                    if path.exists(neon_path):
-                        with open(neon_path, "r") as phpstan_neon_file:
-                            phpstan_neon = phpstan_neon_file.readlines()
+                    if "phpstan.neon" in concourse_input["source"]:
+                        phpstan_neon = concourse_input["source"]["phpstan.neon"].splitlines()
                     else:
                         phpstan_neon = []
                     data["output"] = parse_phpstan_annotations(annotations_path, phpstan_neon)

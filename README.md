@@ -5,16 +5,16 @@ Concourse resource for GitHub Checks
 
 ## Source configuration
 
-- `repository` (required) - the resource where your source code is provided
-- `pull_request` (optional) - the resource where pull requests are provided
+- `repository_url` (required) - location of the repository
+- `commit` (required) - commit that is being built
 - `token` (required) - GitHub App token to use to authenticate
 - `check_name` (required) - the name of the check within GitHub
 - `resource_name` (required) - the name of the resource within Concourse
 - `annotations_format` (optional) - the format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), `pylint`, `codesniffer`, `phpstan`, `phan`, and `psalm`
-- `annotations_location` (optional) - the location of annotations; by default, this is the same as `annotations_format`, but you can provide another path if necessary
+- `phpstan.neon` (optional) - the PHPStan configuration file contents, as a string
 - `debug` (optional) - whether to enable debug logging; must be set to boolean true if present
 
-GitHub endpoint information, commit SHA, and the URL to the Concourse job log will be derived from the environment. `repository` will be used first, then `pull_request` if it is not available.
+GitHub endpoint information and the URL to the Concourse job log will be derived from the environment.
 
 ## Behavior
 Do not `get` this resource manually, it will not work.

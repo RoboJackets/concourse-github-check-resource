@@ -1,0 +1,85 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "source": {
+            "type": "object",
+            "properties": {
+                "repository_url": {
+                    "type": "string",
+                    "format": "uri"
+                },
+                "commit": {
+                    "type": "string",
+                    "regex": "[a-z0-9]{40}"
+                },
+                "token": {
+                    "type": "string",
+                    "regex": "ghs_[a-zA-Z0-9]{36}"
+                },
+                "check_name": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
+                "annotations_format": {
+                    "type": "string",
+                    "enum": [
+                        "yamllint",
+                        "mypy",
+                        "flake8",
+                        "pylint",
+                        "codesniffer",
+                        "phpstan",
+                        "phan",
+                        "psalm"
+                    ]
+                },
+                "phpstan.neon": {
+                    "type": "string"
+                },
+                "debug": {
+                    "const": true
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "pull_request_url",
+                "commit_id",
+                "token"
+            ]
+        },
+        "params": {
+            "type": "object",
+            "properties": {
+                "conclusion": {
+                    "type": "string",
+                    "enum": [
+                        "action_required",
+                        "cancelled",
+                        "failure",
+                        "neutral",
+                        "success",
+                        "skipped",
+                        "timed_out"
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "conclusion"
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "source"
+    ]
+}
