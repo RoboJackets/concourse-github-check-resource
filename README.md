@@ -8,10 +8,10 @@ Concourse resource for GitHub Checks
 - `repository_url` (required) - location of the repository
 - `commit` (required) - commit that is being built
 - `token` (required) - GitHub App token to use to authenticate
-- `check_name` (required) - the name of the check within GitHub
-- `resource_name` (required) - the name of the resource within Concourse
-- `annotations_format` (optional) - the format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), `pylint`, `codesniffer`, `phpstan`, `phan`, and `psalm`
-- `phpstan.neon` (optional) - the PHPStan configuration file contents, as a string
+- `check_name` (required) - name of the check within GitHub
+- `resource_name` (required) - name of the resource within Concourse
+- `annotations_format` (optional) - format for annotations; supports `yamllint`, `mypy`, `flake8` (with the `flake8-json` package), `pylint`, `codesniffer`, `phpstan`, `phan`, and `psalm`
+- `phpstan.neon` (optional) - PHPStan configuration file contents, as a string
 - `debug` (optional) - whether to enable debug logging; must be set to boolean true if present
 
 GitHub endpoint information and the URL to the Concourse job log will be derived from the environment.
