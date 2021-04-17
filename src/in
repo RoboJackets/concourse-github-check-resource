@@ -23,7 +23,7 @@ output_directory = argv[1]
 assert path.exists(output_directory)
 assert path.isdir(output_directory)
 
-with open(output_directory + "/state.json", "w") as state_file:
+with open(path.join(output_directory, "state.json"), "w") as state_file:
     dump({"id": version_id}, state_file)
 
 print(dumps({"version": {"id": version_id,}}))  # noqa: E231

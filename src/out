@@ -550,14 +550,9 @@ if "debug" in concourse_input["source"]:
 
     logger.debug("Debug logging enabled")
 
-remote = concourse_input["source"]["repository_url"]
+remote = concourse_input["source"]["repository_url"].split("/")
 
-maybe_host = remote[2]
-
-if "@" in maybe_host:
-    host = maybe_host.split("@")[1]
-else:
-    host = maybe_host
+host = remote[2]
 
 api_base_url = "https://" + ("api.github.com" if host == "github.com" else host + "/api/v3")
 owner = remote[3]
