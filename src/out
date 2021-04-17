@@ -704,6 +704,8 @@ if path.exists(state_file_path):
         )
     )
 else:
+    assert len(listdir(input_directory)) == 0
+
     data = {
         "name": name,
         "head_sha": head_sha,

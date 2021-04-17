@@ -26,10 +26,9 @@ Returns an empty list.
 Writes the requested version out to disk for future `put`s to update. Intended only for implicit `get`s after `put`s.
 
 ### `out`
-You may want to [manually configure inputs](https://concourse-ci.org/jobs.html#schema.step.put-step.inputs) for better performance if you have large resources in your pipeline.
 
 #### First `put`
-Creates a new check with state `in_progress`. `started_at` will automatically be set to the time when `in` was called.
+Creates a new check with state `in_progress`. `started_at` will automatically be set to the time when `in` was called. Must be called with no `inputs`.
 
 #### Subsequent `put`s
 Updates an existing check. Refer to [the GitHub Checks API documentation](https://docs.github.com/en/rest/reference/checks) for possible values and descriptions. `completed_at` will automatically be set to the time when `out` was called.
