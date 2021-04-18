@@ -46,7 +46,7 @@
             "additionalProperties": false,
             "required": [
                 "repository_url",
-                "commit_id",
+                "commit",
                 "token",
                 "check_name",
                 "resource_name"
