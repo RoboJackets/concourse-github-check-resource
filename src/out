@@ -535,7 +535,7 @@ assert len(listdir(input_directory)) < 3
 
 concourse_input = loads(stdin.read())
 
-with open("../schema/input.json", "r") as schema:
+with open(path.join(path.dirname(path.realpath(__file__)), "..", "schema", "input.json"), "r") as schema:
     validate(instance=concourse_input, schema=load(schema))
 
 if "debug" in concourse_input["source"]:
