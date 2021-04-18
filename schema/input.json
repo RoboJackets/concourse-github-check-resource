@@ -45,9 +45,11 @@
             },
             "additionalProperties": false,
             "required": [
-                "pull_request_url",
+                "repository_url",
                 "commit_id",
-                "token"
+                "token",
+                "check_name",
+                "resource_name"
             ]
         },
         "params": {
