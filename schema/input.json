@@ -33,7 +33,8 @@
                         "codesniffer",
                         "phpstan",
                         "phan",
-                        "psalm"
+                        "psalm",
+                        "markdownlint"
                     ]
                 },
                 "phpstan.neon": {
